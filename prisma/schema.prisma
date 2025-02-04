@@ -1,0 +1,42 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] //this is the binary target for the prisma client
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Users {
+  id        String   @id @default(uuid())
+  firstName String
+  lastName  String
+  dob       DateTime
+
+  professionId String //the users profession id
+  profession   Professions @relation(fields: [professionId], references: [id])
+
+  profileImage String
+  country      String
+  resumeLink   String
+  createdAt    DateTime @default(now())
+
+  UserProfessionPreferences UserProfessionPreferences[] //the users profession preferences
+}
+
+model Professions {
+  id                        String                      @id @default(uuid())
+  professionName            String                      @unique
+  users                     Users[] //the users that have this profession
+  UserProfessionPreferences UserProfessionPreferences[] //the users profession preferences
+}
+
+model UserProfessionPreferences {
+  userId       String
+  professionId String
+  user         Users       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  profession   Professions @relation(fields: [professionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([userId, professionId])
+}
