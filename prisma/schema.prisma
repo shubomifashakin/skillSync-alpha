@@ -20,9 +20,12 @@ model Users {
   profileImage String
   country      String
   resumeLink   String
-  createdAt    DateTime @default(now())
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
 
   UserProfessionPreferences UserProfessionPreferences[] //the users profession preferences
+
+  @@index([lastLogin])
 }
 
 model Professions {

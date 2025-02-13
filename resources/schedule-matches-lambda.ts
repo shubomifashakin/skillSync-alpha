@@ -1,12 +1,15 @@
 import { PrismaClient } from "@prisma/client";
-import { shuffleArray } from "../helpers/shuffleArray";
+
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { APIGatewayProxyEventV2, Context } from "aws-lambda";
 import {
   DynamoDBDocumentClient,
   BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
+
 import { v4 as uuidv4 } from "uuid";
+
+import { shuffleArray } from "../helpers/shuffleArray";
 
 const region = process.env.REGION as string;
 const tableName = process.env.TABLE_NAME as string;
@@ -14,15 +17,17 @@ const tableName = process.env.TABLE_NAME as string;
 const dynamoDb = new DynamoDBClient({ region });
 const ddbDocClient = DynamoDBDocumentClient.from(dynamoDb);
 
-const databaseUrl = process.env.DATABASE_URL as string;
 const prisma = new PrismaClient();
 
 export const handler = async (
   event: APIGatewayProxyEventV2,
   context: Context
 ) => {
+  //TODO: fetch the last user that was processed from dynamo --ADDED LATENCY
+
+  //TODO: fetch the unmatched users from our last session from dynamo and add them to the users array --ADDED LATENCY
+
   //get all the users & their profession preferences from the database
-  //TODO: FIND A WAY TO REDUCE THE NUMBER OF USERS THAT ARE BEING PROCESSED
   const users = await prisma.users.findMany({
     select: {
       id: true,
@@ -33,11 +38,23 @@ export const handler = async (
         },
       },
     },
+    where: {
+      lastLogin: {
+        gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // only fetch users that have logged in during the last 24 hours
+      },
+    },
+    cursor: {
+      id: "1", //this would be the id of the last user that was processed
+    },
+    take: 100, //the max number of users to process
   });
+
+  //SHUFFLE THE USERS
+  const shuffledUsers = shuffleArray(users);
 
   //group all users by their profession
   //ALL USERS WITH THE SAME PROFESSION WILL BE GROUPED TOGETHER
-  const groupedByProfessions = users.reduce(
+  const groupedByProfessions = shuffledUsers.reduce(
     (acc, user) => {
       // if the profession doesn't exist in the object, create it
       if (!acc[user.professionId]) {
@@ -81,7 +98,7 @@ export const handler = async (
 
   //for each user, loop through their profession preferences and find a user that also wants to work with them
   //TODO: PLEASE SET A LIMIT THAT EACH USER CAN ONLY SELECT UP TO 4 PREFERRED PROFESSIONS
-  users.forEach(
+  shuffledUsers.forEach(
     ({
       UserProfessionPreferences: user1ProfessionPreferences,
       id: user1Id,
@@ -99,7 +116,7 @@ export const handler = async (
             return;
           }
 
-          //if users were found for that professions, find a user that also wants to work with them
+          //if users were found for that profession, find a user that also wants to work with them
           foundProfessionUsers.forEach(
             ({
               userId: user2Id,

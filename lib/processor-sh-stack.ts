@@ -55,6 +55,7 @@ export class ProcessorShStack extends cdk.Stack {
         environment: {
           REGION: region,
           TABLE_NAME: dynamoDb.tableName,
+          //COMPULSORY TO PASS THE DATABASE_URL
           DATABASE_URL: process.env.DATABASE_URL as string,
         },
 
@@ -94,7 +95,7 @@ export class ProcessorShStack extends cdk.Stack {
 
     //eventbridge rule trigers the lambda every 10 minutes
     const eventBridgeRule = new Rule(this, "matches-sh-event-bridge-rule", {
-      schedule: Schedule.rate(cdk.Duration.minutes(4)), // 🔥 Runs every 10 minutes
+      schedule: Schedule.rate(cdk.Duration.minutes(4)), // 🔥 IN MY APP I WANT IT TO RUN EVERY 23 hours 45 minutes, in order to account for latency,
       ruleName: "matches-sh-event-bridge-rule",
     });
 
